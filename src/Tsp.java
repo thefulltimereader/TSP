@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 
 public class Tsp {
@@ -12,17 +13,19 @@ public class Tsp {
   private Double[][] pheromone; 
   private int total;
   private double learningRate;
+  private double randNot;
   public Tsp(int length){
     total = length;
     nodes = new Node[total];
     costMatrix = new Double[total][total];
     pheromone = new Double[total][total];
     learningRate = 0.3;
+    randNot = new Random().nextInt(100)/total; 
   }
   public void solve(){
     buildMatrix();
     initPheromone();
-    antColony(4, 5, 6, 0.3);
+    antColony(4, 10, 60, 0.3);
     
   }
   private void antColony(int samples, int beamWidth, double numChildren, 
@@ -33,7 +36,7 @@ public class Tsp {
     double convgFactor = 0;
     boolean bs_update = false;//goes true when alg reaches convergence
     long t = System.currentTimeMillis();
-    long end = t+ 2000; //20 sec..2 min: 60000.
+    long end = t+ 60000; //20 sec..2 min: 60000.
     while(System.currentTimeMillis() < end){
       iterationBest = beamSearch(beamWidth, numChildren, samples);
       iterationBest = localSearch(iterationBest);
@@ -226,22 +229,75 @@ public class Tsp {
     double max = 0;
     int best=0;
     ArrayList<Integer> bestPath = null;
-    for(Iterator<ArrayList<Integer>> itr = poss.iterator(); itr.hasNext();){
-      ArrayList<Integer> aPath = itr.next();
-      //System.out.println(aPath);
-      Integer j = aPath.get(aPath.size()-1);//get the last city visited
-      Integer i = aPath.get(index);
-      if(j!=i){
-        //System.out.println("cost of "+ i+" and "+j+" is " + costMatrix[i][j]);
-        double pheromoneCost = pheromone[i][j]/costMatrix[i][j];
-        if (pheromoneCost > max){
-          max = pheromoneCost;
-          best = j;
-          bestPath = aPath;
+    
+    Random randGen = new Random();
+    int rand = randGen.nextInt(100); 
+    double p = ((double)rand)/100;
+    if(p<randNot){
+      //Deteministic
+      for(Iterator<ArrayList<Integer>> itr = poss.iterator(); itr.hasNext();){
+        ArrayList<Integer> aPath = itr.next();
+        Integer j = aPath.get(aPath.size()-1);//get the last city visited
+        //System.out.println(aPath);
+        Integer i = aPath.get(index);
+        if(j!=i){
+          //System.out.println("cost of "+ i+" and "+j+" is " + costMatrix[i][j]);
+          double pheromoneCost = pheromone[i][j]/costMatrix[i][j];
+          if (pheromoneCost > max){
+            max = pheromoneCost;
+            best = j;
+            bestPath = aPath;
+          }
         }
       }
+      return bestPath;
     }
-    return bestPath;
+    //do stochastic
+    else{
+      
+      double[] probs = buildProbArray(poss, index);
+      return getPathOnProbability(poss, probs, p);
+
+    }
+
+  }
+  private ArrayList<Integer> getPathOnProbability(ArrayList<ArrayList<Integer>> poss,
+      double[] probs, double rand){
+    
+    for(int k =0; k<probs.length; k++){
+      rand -=probs[k];
+     // System.out.println("rand: "+rand);  
+      if(rand<=0) {
+        return poss.get(k);
+      }
+    }
+    
+    return null;
+  }
+  private double[] buildProbArray(ArrayList<ArrayList<Integer>> poss, int index){
+    double[] probs = new double[poss.size()];
+    
+    double sum = 0;
+    for(ArrayList<Integer> aPath: poss){
+      int j = aPath.get(aPath.size()-1);//get the last city visited
+      int i = aPath.get(index);// index is which the city before the last city
+      sum += pheromoneCost(i, j);
+    }
+    double t = 0;
+    for(int k=0; k<poss.size(); k++){
+      ArrayList<Integer> aPath = poss.get(k);
+      int j = aPath.get(aPath.size()-1);//get the last city visited
+      int i = aPath.get(index);// index is which the city before the last city
+      double numerator= pheromoneCost(i,j);
+      probs[k] = numerator/sum;
+      t +=probs[k];
+    }
+   
+    return probs;
+    
+  }
+  private double pheromoneCost(int i, int j){
+    return pheromone[i][j]/costMatrix[i][j];
   }
   public void read(String name, int len) throws FileNotFoundException{ 
     Scanner scanner = null;
