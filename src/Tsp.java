@@ -384,7 +384,7 @@ public class Tsp {
   }
   private void checkValid(List<Integer> path){
     for(int i = 0; i<total; i++){
-      if(!path.contains(i)){ System.err.println("incomprehensive");}
+      if(!path.contains(i)){ System.err.println("incomprehensive "+ i +  " missing");}
     }
   }
   private void buildMatrix(){
