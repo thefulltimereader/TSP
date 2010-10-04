@@ -7,37 +7,36 @@ import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 
-public class Tsp {
+public class TSPP {
   private Node[] nodes;
   private Double[][] costMatrix;
   private Double[][] pheromone; 
   private int total;
   private double learningRate;
   private double randNot;
-  private boolean goBack;
-  public Tsp(int length, boolean back){
+  public TSPP(int length){
     total = length;
     nodes = new Node[total];
     costMatrix = new Double[total][total];
     pheromone = new Double[total][total];
     learningRate = 0.3;
-    randNot = ((double)new Random().nextInt(100))/100;
-    goBack = back;
+    randNot = new Random().nextInt(100)/total; 
   }
   public void solve(){
     buildMatrix();
     initPheromone();
-    antColony(4, 10, 80);
+    antColony(4, 10, 60, 0.3);
     
   }
-  private void antColony(int samples, int beamWidth, double numChildren){
+  private void antColony(int samples, int beamWidth, double numChildren, 
+      double rand){
     ArrayList<Integer> bestSofar = new ArrayList<Integer>();
     ArrayList<Integer> restartBest = new ArrayList<Integer>();
     ArrayList<Integer> iterationBest = new ArrayList<Integer>();
     double convgFactor = 0;
     boolean bs_update = false;//goes true when alg reaches convergence
     long t = System.currentTimeMillis();
-    long end = (long) (t + 0.4*60*1000); //20 sec..2 min: 120000.
+    long end = t+ 60000; //20 sec..2 min: 60000.
     while(System.currentTimeMillis() < end){
       iterationBest = beamSearch(beamWidth, numChildren, samples);
       iterationBest = localSearch(iterationBest);
@@ -47,22 +46,18 @@ public class Tsp {
       if(totalCost(iterationBest)< totalCost(bestSofar)){
         bestSofar = iterationBest;
       }
-      
       convgFactor = computeConvergenceFactor();
       
       if(bs_update && convgFactor>0.99){
         initPheromone();
-        restartBest = new ArrayList<Integer>();
+        restartBest.clear();
         bs_update = false;
       }
       else{
         if(convgFactor>0.99) bs_update = true;
         applyPheromoneUpdate(convgFactor, bs_update, iterationBest, restartBest, bestSofar);
       } 
-      System.out.println("best so far: "+bestSofar);
-    }
-    if(goBack){
-      bestSofar.add(0);
+      System.out.println("best so far: "+ bestSofar);
     }
     System.out.println("Final solution: "+ bestSofar);
     System.out.println("with cost " + totalCost(bestSofar));
@@ -154,47 +149,29 @@ public class Tsp {
     double sum = 0;
     double maxP = max(pheromone);
     double minP = min(pheromone);
-    double sumOfAll = 0;
     for(int i=0; i<total;i++){
       for(int j=0; j<total;j++){
         sum+=maxOfTwo(maxP-pheromone[i][j], pheromone[i][j]-minP);
         //System.out.println(maxP+ " minP: " +minP + " ij" + pheromone[i][j]);
-        sumOfAll += pheromone[i][j];
       }
     }
-    if(maxP-minP==0) sum = 0.5;
-    else sum = sum / (sumOfAll*(maxP-minP));
-    double result = 2*(sum-0.5);
-    if(result>1){
-      result = result/5;
-    }
-    return result;
+    sum = sum / pheromone.length*(maxP-minP);
+    return 2*(sum-0.5);
   }
   private ArrayList<Integer> localSearch(ArrayList<Integer> path){
-    
-    for(int k = 1; k<total-1; k++){
-      Random ranGen = new Random();
-      int rand = ranGen.nextInt(total-1); 
-      ArrayList<Integer> newPath = swap(path, k, rand);
-      if(totalCost(newPath) < totalCost(path)){
-        path = newPath;
-        System.out.println("Swap nodes k:" + path.get(k) + " and "+ path.get(rand));
-      }
-    }
+//    for(int k = 1; k<total-1; k++){
+//      ArrayList<Integer> newPath = swap(path, k);
+//    }
     return path;
   }
-  private ArrayList<Integer> swap(ArrayList<Integer> path, int k, int r) {
-    ArrayList<Integer> exp = (ArrayList<Integer>) path.clone();
-    int temp = exp.get(k);
-    int index = exp.indexOf(temp);
-    exp.remove(index);
-    exp.add(index, exp.get(r));
-    int indexR =exp.indexOf(exp.get(r)); 
-    exp.remove(indexR);
-    exp.add(indexR, temp);   
-    return exp;
+  private ArrayList<Integer> swap(ArrayList<Integer> path, int k) {
+    double costPath = totalCost(path);
+    double deltaChange = costMatrix[path.get(k-1)][path.get(k+1)] + costMatrix[k+1][k] + costMatrix[path.get(k)][path.get(k+2)]
+                  -costMatrix[path.get(k-1)][path.get(k)]-costMatrix[path.get(k)][path.get(k+1)] -costMatrix[path.get(k+1)][path.get(k+2)];
+    costPath += deltaChange;
+    
+    return null;
   }
- 
   private ArrayList<Integer> beamSearch(int beamWidth, double numChildren, int samples){
     //this carries each path (partial sols)
     ArrayList<ArrayList<Integer>>partialSols = new ArrayList<ArrayList<Integer>>();
@@ -218,7 +195,7 @@ public class Tsp {
       partialSols = reduce(bt1, beamWidth);
       bt1.clear();
     }
-   // System.out.println(partialSols.get(0));
+    //System.out.println(partialSols.get(0));
     return partialSols.get(0);
   }
   
@@ -278,6 +255,7 @@ public class Tsp {
     }
     //do stochastic
     else{
+      
       double[] probs = buildProbArray(poss, index);
       return getPathOnProbability(poss, probs, p);
 
@@ -368,11 +346,9 @@ public class Tsp {
   public void showResults(List<Integer> path){
     int before = 0;
     double sum = 0;
-    System.out.println(path.get(0)+" "+nodes[path.get(0)].getX() + " " + nodes[path.get(0)].getY()+
-        " "+ nodes[path.get(0)].getZ() + " dist: "+costMatrix[before][path.get(0)]);
     for(int i=1; i<path.size(); i++){
       if(before!=path.get(i)){
-      System.out.println(path.get(i)+" "+nodes[path.get(i)].getX() + " " + nodes[path.get(i)].getY()+
+      System.out.println(i+" "+nodes[path.get(i)].getX() + " " + nodes[path.get(i)].getY()+
           " "+ nodes[path.get(i)].getZ() + " dist: "+costMatrix[before][path.get(i)]);
       sum = sum+ costMatrix[before][path.get(i)];
       }
@@ -380,12 +356,6 @@ public class Tsp {
       
     }
     System.out.println("Cost is: " + sum);
-    checkValid(path);
-  }
-  private void checkValid(List<Integer> path){
-    for(int i = 0; i<total; i++){
-      if(!path.contains(i)){ System.err.println("incomprehensive");}
-    }
   }
   private void buildMatrix(){
     for(int i=0; i<total; i++){
@@ -487,10 +457,7 @@ public class Tsp {
   public static void main(String[] args) {
     String fileName = args[0];
     int len = Integer.valueOf(args[1]);
-    String flag = args[2];
-    boolean back = false;
-    if(flag.equals("yes")) back = true;
-    Tsp tspSolver = new Tsp(len, back);
+    TSPP tspSolver = new TSPP(len);
     try {
       tspSolver.read(fileName, len);
      
