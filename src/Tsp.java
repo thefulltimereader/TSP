@@ -20,11 +20,12 @@ public class Tsp {
     nodes = new Node[total];
     costMatrix = new Double[total][total];
     pheromone = new Double[total][total];
-    learningRate = 0.3;
+    learningRate = 0.5;
     randNot = ((double)new Random().nextInt(100))/100;
     goBack = back;
   }
   public void solve(){
+    System.out.println("Start..");
     buildMatrix();
     initPheromone();
     antColony(4, 3, 120);
@@ -37,7 +38,7 @@ public class Tsp {
     double convgFactor = 0;
     boolean bs_update = false;//goes true when alg reaches convergence
     long t = System.currentTimeMillis();
-    long end = (long) (t + 0.4*60*1000); //20 sec..2 min: 120000.
+    long end = (long) (t + 1.3*60*1000); //20 sec..2 min: 120000.
     int i = 0;
     while(System.currentTimeMillis() < end){
       iterationBest = beamSearch(beamWidth, numChildren, samples);
