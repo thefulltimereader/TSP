@@ -33,6 +33,11 @@ public class Tsp {
     Integer[] restartBest = new Integer[100];
     double convgFactor = 0;
     boolean bs_update = false;//goes true when alg reaches convergence
+    long t = System.currentTimeMillis();
+    long end = t+50000; //20 sec..2 min.
+    while(System.currentTimeMillis() < end){
+      
+    }
     
   }
   private void beamSearch(int beamWidth, double numChildren, int samples){
@@ -42,7 +47,7 @@ public class Tsp {
     partialSols.add(start);
     ArrayList<CostAndPath> bt1 = new ArrayList<CostAndPath>();
     
-    for(int t=0; t<total; t++){
+    for(int t=0; t<total-1; t++){
       //C:=C(B_t)
       ArrayList<ArrayList<Integer>> poss = constPossibleExtension(partialSols);
       int bound = (int) Math.min(poss.size(), Math.floor(numChildren*beamWidth));
@@ -57,15 +62,15 @@ public class Tsp {
       partialSols.clear();
       partialSols = reduce(bt1, beamWidth);
       bt1.clear();
-      //System.out.println(partialSols);
     }
+    System.out.println(partialSols.get(0));
   }
   
   private ArrayList<ArrayList<Integer>> reduce(ArrayList<CostAndPath> befor, int width){
     Collections.sort(befor);
     //cut it down
     if(width+1<befor.size()) befor.subList(width+1, befor.size()).clear();
-    System.out.println(befor);
+    //System.out.println(befor);
     ArrayList<ArrayList<Integer>> nextBatch = new ArrayList<ArrayList<Integer>>();
     for(CostAndPath cap: befor){
       nextBatch.add(cap.getPath());
