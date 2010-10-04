@@ -1,8 +1,6 @@
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -11,36 +9,166 @@ import java.util.Scanner;
 public class Tsp {
   private Node[] nodes;
   private Double[][] costMatrix;
-  private Double[] pheromone; 
+  private Double[][] pheromone; 
   private int total;
-  
+  private double learningRate;
   public Tsp(int length){
     total = length;
     nodes = new Node[total];
     costMatrix = new Double[total][total];
-    pheromone = new Double[total];
+    pheromone = new Double[total][total];
+    learningRate = 0.3;
   }
   public void solve(){
     buildMatrix();
     initPheromone();
-    beamSearch(5, 8.5, 4);
-    antColony(4, 5, 8.5, 0.3);
+    antColony(4, 5, 6, 0.3);
     
   }
   private void antColony(int samples, int beamWidth, double numChildren, 
       double rand){
-    Integer[] bestSoFar = new Integer[100];
-    Integer[] restartBest = new Integer[100];
+    ArrayList<Integer> bestSofar = new ArrayList<Integer>();
+    ArrayList<Integer> restartBest = new ArrayList<Integer>();
+    ArrayList<Integer> iterationBest = new ArrayList<Integer>();
     double convgFactor = 0;
     boolean bs_update = false;//goes true when alg reaches convergence
     long t = System.currentTimeMillis();
-    long end = t+50000; //20 sec..2 min.
+    long end = t+ 2000; //20 sec..2 min: 60000.
     while(System.currentTimeMillis() < end){
-      
+      iterationBest = beamSearch(beamWidth, numChildren, samples);
+      iterationBest = localSearch(iterationBest);
+      if(totalCost(iterationBest)< totalCost(restartBest)){
+        restartBest = iterationBest;
+      }
+      if(totalCost(iterationBest)< totalCost(bestSofar)){
+        bestSofar = iterationBest;
+      }
+      convgFactor = computeConvergenceFactor();
+      //System.out.println("ConvfFac: "+convgFactor);
+      if(bs_update && convgFactor>0.99){
+        initPheromone();
+        restartBest.clear();
+        bs_update = false;
+      }
+      else{
+        if(convgFactor>0.99) bs_update = true;
+        applyPheromoneUpdate(convgFactor, bs_update, iterationBest, restartBest, bestSofar);
+      } 
+    }
+    System.out.println("Final solution: "+ bestSofar);
+    System.out.println("with cost " + totalCost(bestSofar));
+    showResults(bestSofar);
+    
+    
+  }
+  /**
+   * the three computed solution (tour) determines how to update the pheromone
+   * the influence of each depends on the convg factor
+   * each pheromone value T_ij is updated as:
+   * t_ij = t_ij + p*(gam_ij - t_ij), 
+   * where gam_ij = iterBK*iterationBest_ij + restBestK*restartBest_ij + bestFarK * bestFar_ij
+   * according to table 1:
+   * bs_update == false:
+   * if cf <0.4 iterBK = 1, restBestK = 0, bestFarK = 0
+   * if cf <0.6 iterBK = 2/3, restBestK = 1/3, bestFarK = 0
+   * if cf<0.8 iterBk = 1/3, restBestK = 2/3, bestFarK = 0
+   * if cf<1 iterBk = 0, restBestK = 1, bestFarK =0
+   * bs_update == true:
+
+   * @param convgFactor
+   * @param bsUpdate
+   * @param iterationBest
+   * @param restartBest
+   * @param bestSofar
+   */
+  private void applyPheromoneUpdate(double convgFactor, boolean bsUpdate,
+      ArrayList<Integer> iterationBest, ArrayList<Integer> restartBest,
+      ArrayList<Integer> bestSofar) {
+    Double[][] gamma = getGamma(iterationBest, restartBest, bestSofar, bsUpdate, convgFactor);
+    for(int i =0; i<total; i++){
+      for(int j=0; j<total; j++){
+        pheromone[i][j] = pheromone[i][j] + learningRate*(gamma[i][j]-pheromone[i][j]);
+        //System.out.println("new pheromone at i:"+ i+ " j:" + j+ " is " + pheromone[i][j]);
+        if(pheromone[i][j]>0.999) pheromone[i][j] = 0.999;
+        if(pheromone[i][j]<0.001) pheromone[i][j] = 0.001;
+      }
     }
     
   }
-  private void beamSearch(int beamWidth, double numChildren, int samples){
+  private Double[][] getGamma(ArrayList<Integer> iterationBest,
+      ArrayList<Integer> restartBest, ArrayList<Integer> bestSofar, 
+      boolean bsUpdate, double convgFactor) {
+    Double[][] gamma = new Double[total][total];
+    if(bsUpdate){
+      for(int i=0; i<total; i++){
+        for(int j= 0; j<total; j++){
+          gamma[i][j] = getBestBool(bestSofar, i, j)*1;
+        }
+      }
+   }
+    else{
+      for(int i=0; i<total; i++){
+        for(int j= 0; j<total; j++){
+          if(convgFactor<0.4){
+            gamma[i][j] = getBestBool(iterationBest, i, j)*1;
+          }
+          else if(convgFactor<0.6){
+            gamma[i][j] = getBestBool(iterationBest, i, j)*(2/3) +
+            getBestBool(restartBest, i, j)*(1/3);
+          }
+          else if(convgFactor<0.8){
+            gamma[i][j] = getBestBool(iterationBest, i, j)*(1/3) +
+            getBestBool(restartBest, i, j)*(2/3);
+          }
+          else{
+            gamma[i][j] = getBestBool(restartBest, i, j)*1;
+          }
+        }
+      }
+    }
+    return gamma;
+  }
+  /** iterBk = restBestK = 0 = bestFarK = 1
+  * 
+  * xxBest_ij is 1 if j is visited after i in solution xxBest
+  */
+  private double getBestBool(ArrayList<Integer> bestOf, int i, int j){
+    if( bestOf.indexOf(i) <  bestOf.indexOf(j)) return 1; 
+    else return 0;
+  }
+  /**
+   * Computes the convg factor which is a function of the current pheromone values
+   * @param pheromone
+   * @return
+   */
+  private double computeConvergenceFactor() {
+    double sum = 0;
+    double maxP = max(pheromone);
+    double minP = min(pheromone);
+    for(int i=0; i<total;i++){
+      for(int j=0; j<total;j++){
+        sum+=maxOfTwo(maxP-pheromone[i][j], pheromone[i][j]-minP);
+        //System.out.println(maxP+ " minP: " +minP + " ij" + pheromone[i][j]);
+      }
+    }
+    sum = sum / pheromone.length*(maxP-minP);
+    return 2*(sum-0.5);
+  }
+  private ArrayList<Integer> localSearch(ArrayList<Integer> path){
+//    for(int k = 1; k<total-1; k++){
+//      ArrayList<Integer> newPath = swap(path, k);
+//    }
+    return path;
+  }
+  private ArrayList<Integer> swap(ArrayList<Integer> path, int k) {
+    double costPath = totalCost(path);
+    double deltaChange = costMatrix[path.get(k-1)][path.get(k+1)] + costMatrix[k+1][k] + costMatrix[path.get(k)][path.get(k+2)]
+                  -costMatrix[path.get(k-1)][path.get(k)]-costMatrix[path.get(k)][path.get(k+1)] -costMatrix[path.get(k+1)][path.get(k+2)];
+    costPath += deltaChange;
+    
+    return null;
+  }
+  private ArrayList<Integer> beamSearch(int beamWidth, double numChildren, int samples){
     //this carries each path (partial sols)
     ArrayList<ArrayList<Integer>>partialSols = new ArrayList<ArrayList<Integer>>();
     ArrayList<Integer> start = new ArrayList<Integer>(); start.add(0);
@@ -64,6 +192,7 @@ public class Tsp {
       bt1.clear();
     }
     System.out.println(partialSols.get(0));
+    return partialSols.get(0);
   }
   
   private ArrayList<ArrayList<Integer>> reduce(ArrayList<CostAndPath> befor, int width){
@@ -104,7 +233,7 @@ public class Tsp {
       Integer i = aPath.get(index);
       if(j!=i){
         //System.out.println("cost of "+ i+" and "+j+" is " + costMatrix[i][j]);
-        double pheromoneCost = 0.5/costMatrix[i][j];
+        double pheromoneCost = pheromone[i][j]/costMatrix[i][j];
         if (pheromoneCost > max){
           max = pheromoneCost;
           best = j;
@@ -141,17 +270,35 @@ public class Tsp {
       + Math.pow(to.getZ() - from.getZ(), 2);
       return Math.sqrt(sum);
     }
-    return -1.0;
+    return Double.MAX_VALUE;
     
   }
   private double totalCost(List<Integer> path){
+    if(path.isEmpty()){
+      return Double.MAX_VALUE;
+    }
     double cost = 0;
     int start = path.get(0);
+    //System.out.println(path);
     for(int i=1; i<path.size(); i++){
-      cost+=costMatrix[start][path.get(i)];
-      start = i;
+      if(start!=path.get(i)) cost+=costMatrix[start][path.get(i)];
+      start = path.get(i);
     }
     return cost;
+  }
+  public void showResults(List<Integer> path){
+    int before = 0;
+    double sum = 0;
+    for(int i=1; i<path.size(); i++){
+      if(before!=path.get(i)){
+      System.out.println(i+" "+nodes[path.get(i)].getX() + " " + nodes[path.get(i)].getY()+
+          " "+ nodes[path.get(i)].getZ() + " dist: "+costMatrix[before][path.get(i)]);
+      sum = sum+ costMatrix[before][path.get(i)];
+      }
+      before = path.get(i);
+      
+    }
+    System.out.println("Cost is: " + sum);
   }
   private void buildMatrix(){
     for(int i=0; i<total; i++){
@@ -162,8 +309,32 @@ public class Tsp {
   }
   private void initPheromone(){
     for(int i=0; i<total; i++){
-      pheromone[i] = 0.5;
+      for(int j=0;j<total;j++){
+        pheromone[i][j] = 0.5;
+      }
     }
+  }
+  private double max(Double[][] mat){
+    double max = -1;
+    for(int i=1; i<mat.length;i++){
+      for(int j= 1; j<mat.length;j++){
+        if(mat[i][j] > max) max = mat[i][j];
+      }
+    }
+    return max;
+  }
+  private double min(Double[][] mat){
+    double min = Double.MAX_VALUE;
+    for(int i=1; i<mat.length;i++){
+      for(int j= 1; j<mat.length;j++){
+        if(mat[i][j] < min) min = mat[i][j];
+      }
+    }
+    return min;
+  }
+  private double maxOfTwo(double a, double b){
+    if (a > b) return a;
+    return b;
   }
   /** Private Node class **/
   class Node {
