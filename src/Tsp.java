@@ -27,7 +27,7 @@ public class Tsp {
   public void solve(){
     buildMatrix();
     initPheromone();
-    antColony(4, 10, 80);
+    antColony(4, 3, 120);
     
   }
   private void antColony(int samples, int beamWidth, double numChildren){
@@ -38,9 +38,10 @@ public class Tsp {
     boolean bs_update = false;//goes true when alg reaches convergence
     long t = System.currentTimeMillis();
     long end = (long) (t + 0.4*60*1000); //20 sec..2 min: 120000.
+    int i = 0;
     while(System.currentTimeMillis() < end){
       iterationBest = beamSearch(beamWidth, numChildren, samples);
-      iterationBest = localSearch(iterationBest);
+      //iterationBest = localSearch(iterationBest);
       if(totalCost(iterationBest)< totalCost(restartBest)){
         restartBest = iterationBest;
       }
@@ -59,7 +60,8 @@ public class Tsp {
         if(convgFactor>0.99) bs_update = true;
         applyPheromoneUpdate(convgFactor, bs_update, iterationBest, restartBest, bestSofar);
       } 
-      System.out.println("best so far: "+bestSofar);
+      System.out.println("iteration: "+i);
+      i++;
     }
     if(goBack){
       bestSofar.add(0);
@@ -174,7 +176,7 @@ public class Tsp {
     
     for(int k = 1; k<total-1; k++){
       Random ranGen = new Random();
-      int rand = ranGen.nextInt(total-1); 
+      int rand = ranGen.nextInt(total-3) + 1; 
       ArrayList<Integer> newPath = swap(path, k, rand);
       if(totalCost(newPath) < totalCost(path)){
         path = newPath;
@@ -183,6 +185,7 @@ public class Tsp {
     }
     return path;
   }
+  @SuppressWarnings("unchecked")
   private ArrayList<Integer> swap(ArrayList<Integer> path, int k, int r) {
     ArrayList<Integer> exp = (ArrayList<Integer>) path.clone();
     int temp = exp.get(k);
@@ -383,6 +386,7 @@ public class Tsp {
     checkValid(path);
   }
   private void checkValid(List<Integer> path){
+    if(path.size()!=total){ System.err.println("bad!");} ;
     for(int i = 0; i<total; i++){
       if(!path.contains(i)){ System.err.println("incomprehensive "+ i +  " missing");}
     }
