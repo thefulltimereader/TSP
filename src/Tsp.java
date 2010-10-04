@@ -38,11 +38,11 @@ public class Tsp {
     double convgFactor = 0;
     boolean bs_update = false;//goes true when alg reaches convergence
     long t = System.currentTimeMillis();
-    long end = (long) (t + 1.3*60*1000); //20 sec..2 min: 120000.
+    long end = (long) (t + 1*60*1000); //20 sec..2 min: 120000.
     int i = 0;
     while(System.currentTimeMillis() < end){
       iterationBest = beamSearch(beamWidth, numChildren, samples);
-      //iterationBest = localSearch(iterationBest);
+      iterationBest = localSearch(iterationBest);
       if(totalCost(iterationBest)< totalCost(restartBest)){
         restartBest = iterationBest;
       }
@@ -190,12 +190,8 @@ public class Tsp {
   private ArrayList<Integer> swap(ArrayList<Integer> path, int k, int r) {
     ArrayList<Integer> exp = (ArrayList<Integer>) path.clone();
     int temp = exp.get(k);
-    int index = exp.indexOf(temp);
-    exp.remove(index);
-    exp.add(index, exp.get(r));
-    int indexR =exp.indexOf(exp.get(r)); 
-    exp.remove(indexR);
-    exp.add(indexR, temp);   
+    exp.set(k, exp.get(r));
+    exp.set(r, temp);
     return exp;
   }
  
