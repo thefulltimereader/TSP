@@ -21,14 +21,17 @@ public class Tsp {
     costMatrix = new Double[total][total];
     pheromone = new Double[total][total];
     learningRate = 0.5;
-    randNot = ((double)new Random().nextInt(100))/100;
+    randNot = ((double)new Random().nextInt(80))/100;
+    //randNot = 0.4;
     goBack = back;
   }
   public void solve(){
     System.out.println("Start..");
     buildMatrix();
+    System.out.println("Matrix built..");
     initPheromone();
-    antColony(4, 3, 120);
+    System.out.println("Pheromone level set..");
+    antColony(4, 2, 12);
     
   }
   private void antColony(int samples, int beamWidth, double numChildren){
@@ -40,6 +43,7 @@ public class Tsp {
     long t = System.currentTimeMillis();
     long end = (long) (t + 1*60*1000); //20 sec..2 min: 120000.
     int i = 0;
+    System.out.println("Start iteration..");
     while(System.currentTimeMillis() < end){
       iterationBest = beamSearch(beamWidth, numChildren, samples);
       iterationBest = localSearch(iterationBest);
@@ -70,6 +74,7 @@ public class Tsp {
     System.out.println("Final solution: "+ bestSofar);
     System.out.println("with cost " + totalCost(bestSofar));
     showResults(bestSofar);
+    System.out.println("Done with " + (System.currentTimeMillis()-t)/1000 + " secs");
     
     
   }
@@ -197,6 +202,7 @@ public class Tsp {
  
   private ArrayList<Integer> beamSearch(int beamWidth, double numChildren, int samples){
     //this carries each path (partial sols)
+    System.out.println("Beam!");
     ArrayList<ArrayList<Integer>>partialSols = new ArrayList<ArrayList<Integer>>();
     ArrayList<Integer> start = new ArrayList<Integer>(); start.add(0);
     partialSols.add(start);
@@ -218,7 +224,7 @@ public class Tsp {
       partialSols = reduce(bt1, beamWidth);
       bt1.clear();
     }
-   // System.out.println(partialSols.get(0));
+    System.out.println(partialSols.get(0));
     return partialSols.get(0);
   }
   
@@ -383,7 +389,7 @@ public class Tsp {
     checkValid(path);
   }
   private void checkValid(List<Integer> path){
-    if(path.size()!=total){ System.err.println("bad!");} ;
+    if(path.size()!=total && goBack==false){ System.err.println("bad!");} ;
     for(int i = 0; i<total; i++){
       if(!path.contains(i)){ System.err.println("incomprehensive "+ i +  " missing");}
     }
